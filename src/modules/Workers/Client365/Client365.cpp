@@ -218,15 +218,9 @@ namespace Apostol {
 
         void CClient365::UpdateCacheList() {
             CString LFile;
-            LFile = Config()->Prefix() + _T("client365.cache");
+            LFile = Config()->Prefix() + _T("cache.conf");
             if (FileExists(LFile.c_str())) {
                 m_CacheList.LoadFromFile(LFile.c_str());
-                for (int i = m_CacheList.Count() - 1; i >= 0; --i) {
-                    LFile = Config()->CachePrefix() + m_CacheList[i].SubString(1) + __T("/");
-                    if (!ForceDirectories(LFile.c_str())) {
-                        m_CacheList.Delete(i);
-                    }
-                }
             }
         }
         //--------------------------------------------------------------------------------------------------------------
@@ -519,7 +513,7 @@ namespace Apostol {
             CStringList LRouts;
             SplitColumns(LRequest->Location.pathname, LRouts, '/');
 
-            if (LRouts.Count() < 3) {
+            if (LRouts.Count() < 4) {
                 AConnection->SendStockReply(CReply::not_found);
                 return;
             }
@@ -528,10 +522,10 @@ namespace Apostol {
             const auto& LVersion = LRouts[1].Lower();
             const auto& LCommand = LRouts[2].Lower();
 
-            if (LVersion == "v1") {
-                m_Version = 1;
-            } else if (LVersion == "v2") {
-                m_Version = 2;
+            if (LRouts[1] == _T("v1")) {
+                m_Version = 2; // Всё верно, так нужно
+            } else if (LRouts[1] == _T("v2")) {
+                m_Version = 1; // Всё верно, так нужно
             }
 
             if (LService != "api" || (m_Version == -1)) {
@@ -589,7 +583,7 @@ namespace Apostol {
                 } else {
 
                     CString LPath;
-                    for (int I = 2; I < LRouts.Count(); ++I) {
+                    for (int I = 3; I < LRouts.Count(); ++I) {
                         LPath.Append('/');
                         LPath.Append(LRouts[I].Lower());
                     }
@@ -622,7 +616,7 @@ namespace Apostol {
             CStringList LRouts;
             SplitColumns(LRequest->Location.pathname, LRouts, '/');
 
-            if (LRouts.Count() < 3) {
+            if (LRouts.Count() < 4) {
                 AConnection->SendStockReply(CReply::not_found);
                 return;
             }
