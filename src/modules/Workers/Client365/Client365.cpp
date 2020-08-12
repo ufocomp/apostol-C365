@@ -218,7 +218,7 @@ namespace Apostol {
 
         void CClient365::UpdateCacheList() {
             CString LFile;
-            LFile = Config()->Prefix() + _T("cache.conf");
+            LFile = Config()->ConfPrefix() + _T("cache.conf");
             if (FileExists(LFile.c_str())) {
                 m_CacheList.LoadFromFile(LFile.c_str());
             }
