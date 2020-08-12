@@ -404,7 +404,7 @@ namespace Apostol {
                         throw Delphi::Exception::EDBError(LResult->GetErrorMessage());
 
                     LStatus = CReply::ok;
-                    Postgres::PQResultToJson(LResult, LReply->Content, true, "result");
+                    Postgres::PQResultToJson(LResult, LReply->Content);
                 } catch (Delphi::Exception::Exception &E) {
                     ExceptionToJson(LStatus, E, LReply->Content);
                     Log()->Error(APP_LOG_EMERG, 0, E.what());
