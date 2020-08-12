@@ -14,6 +14,7 @@ message(STATUS "Project description: ${PROJECT_DESCRIPTION}")
 # ----------------------------------------------------------------------------------------------------------------------
 set(INSTALL_AS_ROOT  ON   CACHE BOOL "Install as root")
 set(WITH_POSTGRESQL  ON   CACHE BOOL "Build with PostgreSQL")
+set(WITH_SSL         OFF  CACHE BOOL "Build with SSL")
 set(WITH_CURL        OFF  CACHE BOOL "Build with cURL")
 set(WITH_SQLITE3     OFF  CACHE BOOL "Build with Sqlite3")
 # ----------------------------------------------------------------------------------------------------------------------
@@ -57,6 +58,11 @@ add_compile_options(-DWWWServerName="${PROJECT_DESCRIPTION}")
 if (WITH_POSTGRESQL)
     set(PQ_LIB_NAME "pq")
     add_compile_options("-DWITH_POSTGRESQL")
+endif()
+
+if (WITH_SSL)
+    set(SSL_LIB_NAME "ssl")
+    add_compile_options("-DWITH_SSL")
 endif()
 
 if (WITH_SQLITE3)
@@ -132,7 +138,7 @@ target_compile_definitions(${CORE_LIB_NAME} PUBLIC
         APP_DOC_ROOT="www"
         )
 
-target_link_libraries(${CORE_LIB_NAME} pthread ${PQ_LIB_NAME} ${SQLITE3_LIB_NAME} ${CURL_LIB_NAME} ssl crypto)
+target_link_libraries(${CORE_LIB_NAME} pthread ${PQ_LIB_NAME} ${SQLITE3_LIB_NAME} ${CURL_LIB_NAME} ${SSL_LIB_NAME} crypto)
 
 # Apostol modules
 # ----------------------------------------------------------------------------------------------------------------------

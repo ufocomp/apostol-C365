@@ -46,12 +46,18 @@ namespace Apostol {
 
             void UpdateCacheList();
 
+            static bool CheckAuthorizationData(CRequest *ARequest, CAuthorization &Authorization);
+
             static void QueryToJson(CPQPollQuery *Query, CString& Json, CString &Session);
+
+            static void ReplyError(CHTTPServerConnection *AConnection, CReply::CStatusType ErrorCode, const CString &Message);
 
         protected:
 
             void DoGet(CHTTPServerConnection *AConnection) override;
             void DoPost(CHTTPServerConnection *AConnection);
+
+            void DoFetch(CHTTPServerConnection *AConnection, const CString& Path);
 
             void DoPostgresQueryExecuted(CPQPollQuery *APollQuery) override;
             void DoPostgresQueryException(CPQPollQuery *APollQuery, Delphi::Exception::Exception *AException) override;
@@ -64,10 +70,19 @@ namespace Apostol {
                 return new CClient365(AProcess);
             }
 
-            static bool CheckCache(const CString &FileName);
+            static bool CacheAge(const CString &FileName);
+            CString GetCacheFile(const CString &Session, const CString &Path, const CString &Payload);
 
             CStringList &CacheList() { return m_CacheList; };
             const CStringList &CacheList() const { return m_CacheList; };
+
+            static bool CheckAuthorization(CHTTPServerConnection *AConnection, CAuthorization &Authorization);
+
+            void AuthorizedFetch(CHTTPServerConnection *AConnection, const CAuthorization &Authorization,
+                const CString &Path, const CString &Payload, const CString &Agent, const CString &Host);
+
+            static CString GetSession(CRequest *ARequest);
+            static bool CheckSession(CRequest *ARequest, CString &Session);
 
             bool Enabled() override;
             bool CheckConnection(CHTTPServerConnection *AConnection) override;
