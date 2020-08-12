@@ -57,6 +57,7 @@ namespace Apostol {
             void DoGet(CHTTPServerConnection *AConnection) override;
             void DoPost(CHTTPServerConnection *AConnection);
 
+            void DoLogin(CHTTPServerConnection *AConnection);
             void DoFetch(CHTTPServerConnection *AConnection, const CString& Path);
 
             void DoPostgresQueryExecuted(CPQPollQuery *APollQuery) override;

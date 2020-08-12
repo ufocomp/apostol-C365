@@ -381,10 +381,88 @@ namespace Apostol {
             }
 
             AConnection->Data().Values("authorized", "true");
-            AConnection->Data().Values("signature", "false");
             AConnection->Data().Values("path", Path);
 
             if (!StartQuery(AConnection, SQL)) {
+                AConnection->SendStockReply(CReply::service_unavailable);
+            }
+        }
+        //--------------------------------------------------------------------------------------------------------------
+
+        void CClient365::DoLogin(CHTTPServerConnection *AConnection) {
+
+            auto OnExecuted = [this, AConnection](CPQPollQuery *APollQuery) {
+
+                auto LReply = AConnection->Reply();
+                auto LResult = APollQuery->Results(0);
+
+                CString ErrorMessage;
+                CReply::CStatusType LStatus = CReply::bad_request;
+
+                try {
+                    if (LResult->ExecStatus() != PGRES_TUPLES_OK)
+                        throw Delphi::Exception::EDBError(LResult->GetErrorMessage());
+
+                    LStatus = CReply::ok;
+                    Postgres::PQResultToJson(LResult, LReply->Content, true, "result");
+                } catch (Delphi::Exception::Exception &E) {
+                    ExceptionToJson(LStatus, E, LReply->Content);
+                    Log()->Error(APP_LOG_EMERG, 0, E.what());
+                }
+
+                AConnection->SendReply(LStatus, nullptr, true);
+            };
+
+            auto OnException = [this, AConnection](CPQPollQuery *APollQuery, Delphi::Exception::Exception *AException) {
+
+                auto LReply = AConnection->Reply();
+
+                ExceptionToJson(CReply::internal_server_error, *AException, LReply->Content);
+                AConnection->SendStockReply(CReply::ok, true);
+
+                Log()->Error(APP_LOG_EMERG, 0, AException->what());
+
+            };
+
+            auto LRequest = AConnection->Request();
+
+            const auto &Host = GetHost(AConnection);
+
+            CStringList SQL;
+            CJSON Login;
+
+            Login << LRequest->Content;
+
+            const auto &UserName = Login["username"].AsString();
+            const auto &Password = Login["password"].AsString();
+            const auto &Session = Login["session"].AsString();
+            const auto &Department = Login["department"].AsString();
+            const auto &WorkPlace = Login["workplace"].AsString();
+
+            if (Session.IsEmpty()) {
+
+                if (UserName.IsEmpty() || Password.IsEmpty()) {
+                    AConnection->SendStockReply(CReply::bad_request);
+                    return;
+                }
+
+                SQL.Add(CString().Format("SELECT * FROM apis.login(%s, %s, %s, %s, %s);",
+                                         PQQuoteLiteral(UserName).c_str(),
+                                         PQQuoteLiteral(Password).c_str(),
+                                         PQQuoteLiteral(Host).c_str(),
+                                         PQQuoteLiteral(Department).c_str(),
+                                         PQQuoteLiteral(WorkPlace).c_str()
+                ));
+            } else {
+                SQL.Add(CString().Format("SELECT * FROM apis.slogin(%s, %s, %s, %s);",
+                                         PQQuoteLiteral(Session).c_str(),
+                                         PQQuoteLiteral(Host).c_str(),
+                                         PQQuoteLiteral(Department).c_str(),
+                                         PQQuoteLiteral(WorkPlace).c_str()
+                ));
+            }
+
+            if (!ExecSQL(SQL, AConnection, OnExecuted, OnException)) {
                 AConnection->SendStockReply(CReply::service_unavailable);
             }
         }
@@ -544,24 +622,24 @@ namespace Apostol {
             CStringList LRouts;
             SplitColumns(LRequest->Location.pathname, LRouts, '/');
 
-            if (LRouts.Count() < 2) {
+            if (LRouts.Count() < 3) {
                 AConnection->SendStockReply(CReply::not_found);
                 return;
             }
 
             if (LRouts[1] == _T("v1")) {
-                m_Version = 1;
+                m_Version = 2; // Всё верно, так нужно
             } else if (LRouts[1] == _T("v2")) {
-                m_Version = 2;
+                m_Version = 1; // Всё верно, так нужно
             }
 
-            if (LRouts[0] != _T("api") || (m_Version == -1)) {
+            if (LRouts[0] != _T("api") || (m_Version == -1) || LRouts[2] != _T("json")) {
                 AConnection->SendStockReply(CReply::not_found);
                 return;
             }
 
             CString LPath;
-            for (int I = 2; I < LRouts.Count(); ++I) {
+            for (int I = 3; I < LRouts.Count(); ++I) {
                 LPath.Append('/');
                 LPath.Append(LRouts[I].Lower());
             }
@@ -571,96 +649,11 @@ namespace Apostol {
                 return;
             }
 
-            DoFetch(AConnection, LPath);
-
-            return;
-
-            CStringList LSQL;
-
             if (LRouts[3] == _T("login")) {
-
-                if (LRequest->Content.IsEmpty()) {
-                    AConnection->SendStockReply(CReply::no_content);
-                    return;
-                }
-
-                const auto &Host = GetHost(AConnection);
-
-                CJSON Login;
-
-                Login << LRequest->Content;
-
-                const auto &UserName = Login["username"].AsString();
-                const auto &Password = Login["password"].AsString();
-                const auto &Session = Login["session"].AsString();
-                const auto &Department = Login["department"].AsString();
-                const auto &WorkPlace = Login["workplace"].AsString();
-
-                if (Session.IsEmpty()) {
-
-                    if (UserName.IsEmpty() || Password.IsEmpty()) {
-                        AConnection->SendStockReply(CReply::bad_request);
-                        return;
-                    }
-
-                    LSQL.Add(CString().Format("SELECT * FROM apis.login(%s, %s, %s, %s, %s);",
-                        PQQuoteLiteral(UserName).c_str(),
-                        PQQuoteLiteral(Password).c_str(),
-                        PQQuoteLiteral(Host).c_str(),
-                        PQQuoteLiteral(Department).c_str(),
-                        PQQuoteLiteral(WorkPlace).c_str()
-                    ));
-                } else {
-                    LSQL.Add(CString().Format("SELECT * FROM apis.slogin(%s, %s, %s, %s);",
-                        PQQuoteLiteral(Session).c_str(),
-                        PQQuoteLiteral(Host).c_str(),
-                        PQQuoteLiteral(Department).c_str(),
-                        PQQuoteLiteral(WorkPlace).c_str()
-                    ));
-                }
-
+                DoLogin(AConnection);
             } else {
-
-                const CString &LAuthorization = LRequest->Headers.Values(_T("authorization"));
-                const CString &LAuthenticate = LRequest->Headers.Values(_T("authenticate"));
-
-                if (LAuthorization.IsEmpty() && LAuthenticate.IsEmpty()) {
-                    AConnection->SendStockReply(CReply::unauthorized);
-                    return;
-                }
-
-                CString LSession;
-
-                if (!LAuthenticate.IsEmpty()) {
-                    size_t Pos = LAuthenticate.Find('=');
-                    if (Pos == CString::npos) {
-                        AConnection->SendStockReply(CReply::bad_request);
-                        return;
-                    }
-
-                    LSession = LAuthenticate.SubString(Pos + 1);
-                }
-
-                if (LSession.Length() != 40) {
-                    AConnection->SendStockReply(CReply::bad_request);
-                    return;
-                }
-
-
-                LSQL.Add("SELECT * FROM apis.slogin('" + LSession + "');");
-                LSQL.Add("SELECT * FROM api.run('" + LPath);
-
-                if (LRequest->Content == "{}" || LRequest->Content == "[]")
-                    LRequest->Content.Clear();
-
-                if (!LRequest->Content.IsEmpty()) {
-                    LSQL.Last() += "', '" + LRequest->Content;
-                }
-
-                LSQL.Last() += "');";
+                DoFetch(AConnection, LPath);
             }
-
-            ExecSQL(LSQL, AConnection);
         }
         //--------------------------------------------------------------------------------------------------------------
 
