@@ -27,22 +27,11 @@ Author:
 #include "Client365.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-#include <openssl/sha.h>
-#include <openssl/hmac.h>
-//----------------------------------------------------------------------------------------------------------------------
-
 extern "C++" {
 
 namespace Apostol {
 
     namespace Client365 {
-
-        CString SHA1(const CString &data) {
-            CString digest;
-            digest.SetLength(SHA_DIGEST_LENGTH);
-            ::SHA1((unsigned char *) data.data(), data.length(), (unsigned char *) digest.Data());
-            return digest;
-        }
 
         //--------------------------------------------------------------------------------------------------------------
 
@@ -262,7 +251,9 @@ namespace Apostol {
                 LData = Path;
                 LData += Payload.IsEmpty() ? "null" : Payload;
 
-                LCacheFile += SHA1(LData);
+                const auto &sha1 = SHA1(LData);
+
+                LCacheFile += b2a_hex( (const unsigned char*) sha1.c_str(), (int) sha1.size() );
             }
 
             return LCacheFile;
